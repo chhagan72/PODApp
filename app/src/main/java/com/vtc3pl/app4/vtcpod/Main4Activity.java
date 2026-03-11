@@ -75,6 +75,7 @@ public class Main4Activity extends AppCompatActivity {
     List<Integer> posv= new ArrayList<Integer>();
     List<Integer> posb= new ArrayList<Integer>();
     String upLoadServerUri = "https://vtc3pl.com/uploadpod.php";
+    String depo;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,7 +87,10 @@ public class Main4Activity extends AppCompatActivity {
         Button btnPhoto = findViewById(R.id.btnPhoto);
         Button btnUpload = findViewById(R.id.btnUpload);
         Button btnmUpload = findViewById(R.id.btnmUpload);
+        Button btnmlrUpload = findViewById(R.id.btnmlrUpload);
         //TextView barcodeno= findViewById(R.id.barcodeno);
+        depo = getIntent().getStringExtra("Depo");
+        Log.d("Main4Activity", "Received Depo: " + depo);
 
         EnableRuntimePermission();
 
@@ -123,6 +127,15 @@ public class Main4Activity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Intent myIntent = new Intent(Main4Activity.this, Main2Activity.class);
+                myIntent.putExtra("Depo", depo);
+                startActivity(myIntent);
+            }
+        });
+        btnmlrUpload.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent myIntent = new Intent(Main4Activity.this, PodLrwiseUpload.class);
+                myIntent.putExtra("Depo", depo);
                 startActivity(myIntent);
             }
         });

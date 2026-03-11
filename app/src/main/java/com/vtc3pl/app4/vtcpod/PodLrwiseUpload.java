@@ -76,7 +76,7 @@ import static android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION;
 import static android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
 import static androidx.core.content.FileProvider.getUriForFile;
 
-public class Main2Activity extends AppCompatActivity {
+public class PodLrwiseUpload extends AppCompatActivity {
     public static final int RequestPermissionCode = 100;
     static final int REQUEST_IMAGE_CAPTURE = 101;
     static final int REQUEST_IMAGE_PICK = 102;
@@ -170,6 +170,7 @@ public class Main2Activity extends AppCompatActivity {
                 lrList);
 
         editTextLR.setAdapter(lrAdapter);
+//        editTextLR.setThreshold(1);
 
         edtDeliveryDate = findViewById(R.id.edtDeliveryDate);
         imgCal = findViewById(R.id.imgCal);
@@ -249,13 +250,13 @@ public class Main2Activity extends AppCompatActivity {
         imgCal.setOnClickListener(v -> {
             Object sel = spinner1.getSelectedItem();
             if (sel == null) {
-                Toast.makeText(Main2Activity.this, "Please select LR first", Toast.LENGTH_SHORT).show();
+                Toast.makeText(PodLrwiseUpload.this, "Please select LR first", Toast.LENGTH_SHORT).show();
                 return;
             }
             String lrno = sel.toString();
             String drsdtStr = drsdtMap.get(lrno);
             if (drsdtStr == null || drsdtStr.equals("")) {
-                Toast.makeText(Main2Activity.this, "No DRS date available for this LR", Toast.LENGTH_SHORT).show();
+                Toast.makeText(PodLrwiseUpload.this, "No DRS date available for this LR", Toast.LENGTH_SHORT).show();
                 return;
             }
             try {
@@ -272,13 +273,13 @@ public class Main2Activity extends AppCompatActivity {
                 int m = today.get(Calendar.MONTH);
                 int d = today.get(Calendar.DAY_OF_MONTH);
 
-                DatePickerDialog dpd = new DatePickerDialog(Main2Activity.this, (DatePicker view, int year, int month, int dayOfMonth) -> {
+                DatePickerDialog dpd = new DatePickerDialog(PodLrwiseUpload.this, (DatePicker view, int year, int month, int dayOfMonth) -> {
                     Calendar chosen = Calendar.getInstance();
                     chosen.set(year, month, dayOfMonth, 0, 0, 0);
                     Date chosenDate = chosen.getTime();
 
                     if (chosenDate.before(minCal.getTime()) || chosenDate.after(maxCal.getTime())) {
-                        Toast.makeText(Main2Activity.this, "Allowed date must be between " + sdf.format(minCal.getTime()) + " and " + sdf.format(maxCal.getTime()), Toast.LENGTH_LONG).show();
+                        Toast.makeText(PodLrwiseUpload.this, "Allowed date must be between " + sdf.format(minCal.getTime()) + " and " + sdf.format(maxCal.getTime()), Toast.LENGTH_LONG).show();
                         return;
                     }
                     String selected = sdf.format(chosenDate);
@@ -294,7 +295,7 @@ public class Main2Activity extends AppCompatActivity {
                     }
 
                     if (drsnoForLR.equals("")) {
-                        Toast.makeText(Main2Activity.this, "DRS number is not set. Please get LR list first.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(PodLrwiseUpload.this, "DRS number is not set. Please get LR list first.", Toast.LENGTH_SHORT).show();
                         return;
                     }
 
@@ -308,7 +309,7 @@ public class Main2Activity extends AppCompatActivity {
 
             } catch (ParseException e) {
                 e.printStackTrace();
-                Toast.makeText(Main2Activity.this, "Invalid DRS date format.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(PodLrwiseUpload.this, "Invalid DRS date format.", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -361,7 +362,7 @@ public class Main2Activity extends AppCompatActivity {
                 }
 
                 if (isOlderThan4Days && approveStatus == 0 ) {
-                    new AlertDialog.Builder(Main2Activity.this)
+                    new AlertDialog.Builder(PodLrwiseUpload.this)
                             .setTitle("Approval Required")
                             .setMessage("DRS क्रमांकाची तारीख ४ दिवसांपेक्षा जुनी आहे. तुम्ही POD अपलोड करू शकणार नाही. POD अपलोड करण्यासाठी कृपया राजेश पवार सर यांची मंजुरी (approval) घ्या आणि त्यानंतरच अपलोड करा.")
                             .setPositiveButton("OK", null)
@@ -371,7 +372,7 @@ public class Main2Activity extends AppCompatActivity {
             }
 
             if (approveStatus == 2) {
-                new AlertDialog.Builder(Main2Activity.this)
+                new AlertDialog.Builder(PodLrwiseUpload.this)
                         .setTitle("Upload Rejected")
                         .setMessage("हा DRS क्रमांक नाकारलेला (Rejected) आहे. तुम्ही POD अपलोड करू शकत नाही. कृपया राजेश पवार सरांशी संपर्क साधा.")
                         .setPositiveButton("OK", null)
@@ -389,16 +390,16 @@ public class Main2Activity extends AppCompatActivity {
                 return;
             }
 
-            dialog = new ProgressDialog(Main2Activity.this);
+            dialog = new ProgressDialog(PodLrwiseUpload.this);
             dialog.setMessage("Uploading POD...");
             dialog.setCancelable(false);
             dialog.show();
-            Main2Activity.BackgroundWorker backgroundWorker = new Main2Activity.BackgroundWorker(Main2Activity.this);
+            PodLrwiseUpload.BackgroundWorker backgroundWorker = new PodLrwiseUpload.BackgroundWorker(PodLrwiseUpload.this);
             backgroundWorker.execute();
         });
 
         btnaUpload.setOnClickListener(view -> {
-            Intent myIntent = new Intent(Main2Activity.this, Main4Activity.class);
+            Intent myIntent = new Intent(PodLrwiseUpload.this, Main4Activity.class);
             startActivity(myIntent);
         });
 
@@ -419,7 +420,7 @@ public class Main2Activity extends AppCompatActivity {
                     String term = s.toString().trim();
 
                     // only search when 4+ characters typed
-                    if (term.length() >= 4) {
+                    if (term.length() >= 3) {
                         searchLRFromServer(term);
                     }
 
@@ -436,26 +437,26 @@ public class Main2Activity extends AppCompatActivity {
 
         editTextLR.setOnItemClickListener((parent, view, position, id) -> {
 
-            drsno = parent.getItemAtPosition(position).toString();
+            String lrno = parent.getItemAtPosition(position).toString();
 
-            editTextLR.setText(drsno);
-            editTextLR.setSelection(drsno.length());
+            editTextLR.setText(lrno);
+            editTextLR.setSelection(lrno.length());
             editTextLR.dismissDropDown();
 
-            fetchLRByDRS(drsno);
+            fetchLRDetails(lrno);
         });
 
         btnGetLR.setOnClickListener(v -> {
 
-            String drs = editTextLR.getText().toString().trim();
+            String lrno = editTextLR.getText().toString().trim();
 
-            if (drs.length() < 3) {
-                Toast.makeText(Main2Activity.this, "Enter valid DRS No", Toast.LENGTH_SHORT).show();
+            if (lrno.length() < 3) {
+                Toast.makeText(PodLrwiseUpload.this, "Enter valid LR No", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            drsno = drs.toUpperCase();
-            fetchLRByDRS(drsno);
+            lrno = lrno.toUpperCase(); // IMPORTANT
+            fetchLRDetails(lrno);
 
         });
     }
@@ -481,19 +482,20 @@ public class Main2Activity extends AppCompatActivity {
     }
 
     private void searchLRFromServer(String term) {
-
+        lrList.clear();
         if (loader == null) {
-            loader = new ProgressDialog(Main2Activity.this);
+            loader = new ProgressDialog(PodLrwiseUpload.this);
             loader.setMessage("Searching LR...");
             loader.setCancelable(false);
         }
 
+        Log.e("LR_SEARCH", term);
         if (!loader.isShowing()) {
             loader.show();
         }
-
+        String url = "https://vtc3pl.com/search_lrnoPOD.php?term=" + Uri.encode(term);
         Request request = new Request.Builder()
-                .url("https://vtc3pl.com/search_drsnoPOD.php?term=" + term)
+                .url(url)
                 .build();
 
         client.newCall(request).enqueue(new Callback() {
@@ -505,7 +507,7 @@ public class Main2Activity extends AppCompatActivity {
                     if (loader != null && loader.isShowing())
                         loader.dismiss();
 
-                    Toast.makeText(Main2Activity.this,
+                    Toast.makeText(PodLrwiseUpload.this,
                             "Search failed",
                             Toast.LENGTH_SHORT).show();
                 });
@@ -547,14 +549,14 @@ public class Main2Activity extends AppCompatActivity {
         });
     }
 
-    private void fetchLRByDRS(String drsno){
+    private void fetchLRDetails(String lrno){
 
         RequestBody formBody = new FormBody.Builder()
-                .add("drsno", drsno.trim())
+                .add("lrno", lrno.trim())
                 .build();
 
         Request request = new Request.Builder()
-                .url("https://vtc3pl.com/getlrno_pod_by_drs.php")
+                .url("https://vtc3pl.com/getlrno_pod_by_lr.php")
                 .post(formBody)
                 .build();
 
@@ -564,7 +566,7 @@ public class Main2Activity extends AppCompatActivity {
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
 
                 runOnUiThread(() ->
-                        Toast.makeText(Main2Activity.this,
+                        Toast.makeText(PodLrwiseUpload.this,
                                 "Failed to load LR : " + e.getMessage(),
                                 Toast.LENGTH_LONG).show());
 
@@ -575,7 +577,7 @@ public class Main2Activity extends AppCompatActivity {
 
                 if(response.body()==null){
                     runOnUiThread(() ->
-                            Toast.makeText(Main2Activity.this,
+                            Toast.makeText(PodLrwiseUpload.this,
                                     "Server returned empty response",
                                     Toast.LENGTH_LONG).show());
                     return;
@@ -583,13 +585,15 @@ public class Main2Activity extends AppCompatActivity {
 
                 String result = response.body().string();
 
+                Log.e("LR_RESPONSE", result); // DEBUG
+
                 runOnUiThread(() -> {
 
                     try {
 
                         if(result == null || result.trim().equals("") || result.trim().equals("[]")){
-                            Toast.makeText(Main2Activity.this,
-                                    "No LR found for this DRS",
+                            Toast.makeText(PodLrwiseUpload.this,
+                                    "LR not found",
                                     Toast.LENGTH_SHORT).show();
                             return;
                         }
@@ -598,7 +602,7 @@ public class Main2Activity extends AppCompatActivity {
 
                     } catch (JSONException e) {
                         e.printStackTrace();
-                        Toast.makeText(Main2Activity.this,
+                        Toast.makeText(PodLrwiseUpload.this,
                                 "JSON Parse Error",
                                 Toast.LENGTH_LONG).show();
                     }
@@ -619,7 +623,7 @@ public class Main2Activity extends AppCompatActivity {
         client.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                runOnUiThread(() -> Toast.makeText(Main2Activity.this, "Failed to fetch Depot data", Toast.LENGTH_SHORT).show());
+                runOnUiThread(() -> Toast.makeText(PodLrwiseUpload.this, "Failed to fetch Depot data", Toast.LENGTH_SHORT).show());
             }
 
             @Override
@@ -636,17 +640,17 @@ public class Main2Activity extends AppCompatActivity {
                                 depoList.add(trimmedPart);
                             }
                             runOnUiThread(() -> {
-                                ArrayAdapter<String> arrayAdapterDepo = new ArrayAdapter<>(Main2Activity.this, android.R.layout.simple_spinner_dropdown_item, depoList);
+                                ArrayAdapter<String> arrayAdapterDepo = new ArrayAdapter<>(PodLrwiseUpload.this, android.R.layout.simple_spinner_dropdown_item, depoList);
                                 Log.e("Values", arrayAdapterDepo.toString());
                             });
                         } catch (JSONException e) {
-                            runOnUiThread(() -> Toast.makeText(Main2Activity.this, "Failed to parse Depot data", Toast.LENGTH_SHORT).show());
+                            runOnUiThread(() -> Toast.makeText(PodLrwiseUpload.this, "Failed to parse Depot data", Toast.LENGTH_SHORT).show());
                         }
                     } else {
-                        runOnUiThread(() -> Toast.makeText(Main2Activity.this, "Response body is null", Toast.LENGTH_SHORT).show());
+                        runOnUiThread(() -> Toast.makeText(PodLrwiseUpload.this, "Response body is null", Toast.LENGTH_SHORT).show());
                     }
                 } else {
-                    runOnUiThread(() -> Toast.makeText(Main2Activity.this, "Failed to fetch Depot data", Toast.LENGTH_SHORT).show());
+                    runOnUiThread(() -> Toast.makeText(PodLrwiseUpload.this, "Failed to fetch Depot data", Toast.LENGTH_SHORT).show());
                 }
             }
         });
@@ -823,10 +827,10 @@ public class Main2Activity extends AppCompatActivity {
     }
 
     public void EnableRuntimePermission() {
-        if (ActivityCompat.shouldShowRequestPermissionRationale(Main2Activity.this,
+        if (ActivityCompat.shouldShowRequestPermissionRationale(PodLrwiseUpload.this,
                 Manifest.permission.CAMERA)) {
         } else {
-            ActivityCompat.requestPermissions(Main2Activity.this, new String[]{
+            ActivityCompat.requestPermissions(PodLrwiseUpload.this, new String[]{
                     Manifest.permission.CAMERA}, RequestPermissionCode);
         }
     }
@@ -890,7 +894,7 @@ public class Main2Activity extends AppCompatActivity {
             }
         }
 
-        ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(Main2Activity.this, android.R.layout.simple_spinner_dropdown_item, LRNO) {
+        ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(PodLrwiseUpload.this, android.R.layout.simple_spinner_dropdown_item, LRNO) {
             @Override
             public boolean isEnabled(int position) {
                 if (posv.contains(position)) {
@@ -950,19 +954,19 @@ public class Main2Activity extends AppCompatActivity {
 
         client.newCall(request).enqueue(new Callback() {
             @Override public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                runOnUiThread(() -> Toast.makeText(Main2Activity.this, "Delivery date update failed.", Toast.LENGTH_SHORT).show());
+                runOnUiThread(() -> Toast.makeText(PodLrwiseUpload.this, "Delivery date update failed.", Toast.LENGTH_SHORT).show());
             }
             @Override public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
                 if (response.isSuccessful()) {
                     String body = response.body() != null ? response.body().string() : "";
                     if (body.trim().equals("OK")) {
                         deliveryDateMap.put(lrno, newDate);
-                        runOnUiThread(() -> Toast.makeText(Main2Activity.this, "Delivery date updated.", Toast.LENGTH_SHORT).show());
+                        runOnUiThread(() -> Toast.makeText(PodLrwiseUpload.this, "Delivery date updated.", Toast.LENGTH_SHORT).show());
                     } else {
-                        runOnUiThread(() -> Toast.makeText(Main2Activity.this, "Delivery date update failed: " + body, Toast.LENGTH_LONG).show());
+                        runOnUiThread(() -> Toast.makeText(PodLrwiseUpload.this, "Delivery date update failed: " + body, Toast.LENGTH_LONG).show());
                     }
                 } else {
-                    runOnUiThread(() -> Toast.makeText(Main2Activity.this, "Delivery date update failed.", Toast.LENGTH_SHORT).show());
+                    runOnUiThread(() -> Toast.makeText(PodLrwiseUpload.this, "Delivery date update failed.", Toast.LENGTH_SHORT).show());
                 }
             }
         });
@@ -984,7 +988,7 @@ public class Main2Activity extends AppCompatActivity {
             if (spinner.getSelectedItem() == null) {
                 runOnUiThread(() -> {
                     if (dialog != null && dialog.isShowing()) dialog.dismiss();
-                    Toast.makeText(Main2Activity.this, "Please select LR before upload.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(PodLrwiseUpload.this, "Please select LR before upload.", Toast.LENGTH_SHORT).show();
                 });
                 return "No LR selected.";
             }
@@ -1026,7 +1030,7 @@ public class Main2Activity extends AppCompatActivity {
                     final String msg = "तुमची वितरण तारीख ४ दिवसांपेक्षा जास्त आहे. त्यामुळे तुम्ही फोटो अपलोड करू शकणार नाही. कृपया वितरण तारीख फील्ड वापरून तारीख बदला (DRS तारखेपासून ४ दिवसांच्या आत तारीख निवडा). तसेच वितरण तारीख रिकामी असल्यास, कृपया तारीख निवडा आणि नंतर फोटो अपलोड करा.";
                     runOnUiThread(() -> {
                         if (dialog != null && dialog.isShowing()) dialog.dismiss();
-                        new AlertDialog.Builder(Main2Activity.this).setTitle("Delivery Date Required")
+                        new AlertDialog.Builder(PodLrwiseUpload.this).setTitle("Delivery Date Required")
                                 .setMessage(msg).setPositiveButton("OK", null).show();
                     });
                     return "तुमची वितरण तारीख ४ दिवसांपेक्षा जास्त आहे. त्यामुळे तुम्ही फोटो अपलोड करू शकणार नाही. कृपया वितरण तारीख फील्ड वापरून तारीख बदला (DRS तारखेपासून ४ दिवसांच्या आत तारीख निवडा). तसेच वितरण तारीख रिकामी असल्यास, कृपया तारीख निवडा आणि नंतर फोटो अपलोड करा.";
@@ -1040,7 +1044,7 @@ public class Main2Activity extends AppCompatActivity {
                             Date finalDrsDate = drsDate;
                             runOnUiThread(() -> {
                                 if (dialog != null && dialog.isShowing()) dialog.dismiss();
-                                Toast.makeText(Main2Activity.this, "Selected DeliveryDate must be between " + sdf.format(finalDrsDate) + " and " + sdf.format(maxCal.getTime()), Toast.LENGTH_LONG).show();
+                                Toast.makeText(PodLrwiseUpload.this, "Selected DeliveryDate must be between " + sdf.format(finalDrsDate) + " and " + sdf.format(maxCal.getTime()), Toast.LENGTH_LONG).show();
                             });
                             return "तुमची डिलिव्हरी तारीख ४ दिवसांपेक्षा जास्त आहे. त्यामुळे तुम्ही फोटो अपलोड करू शकणार नाही. कृपया डिलिव्हरी तारीख फील्ड वापरून तारीख बदला (DRS तारखेपासून ४ दिवसांच्या आत तारीख निवडा). तसेच डिलिव्हरी तारीख रिकामी असल्यास, कृपया तारीख निवडा आणि नंतर फोटो अपलोड करा.";
                         } else {
@@ -1050,7 +1054,7 @@ public class Main2Activity extends AppCompatActivity {
                                 if (!ok) {
                                     runOnUiThread(() -> {
                                         if (dialog != null && dialog.isShowing()) dialog.dismiss();
-                                        Toast.makeText(Main2Activity.this, "Failed to update DeliveryDate on server.", Toast.LENGTH_LONG).show();
+                                        Toast.makeText(PodLrwiseUpload.this, "Failed to update DeliveryDate on server.", Toast.LENGTH_LONG).show();
                                     });
                                     return "Failed to update DeliveryDate on server";
                                 } else {
@@ -1062,7 +1066,7 @@ public class Main2Activity extends AppCompatActivity {
                         e.printStackTrace();
                         runOnUiThread(() -> {
                             if (dialog != null && dialog.isShowing()) dialog.dismiss();
-                            Toast.makeText(Main2Activity.this, "Invalid selected date.", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(PodLrwiseUpload.this, "Invalid selected date.", Toast.LENGTH_SHORT).show();
                         });
                         return "निवडलेली तारीख योग्य नाही.";
                     }
@@ -1075,7 +1079,7 @@ public class Main2Activity extends AppCompatActivity {
                     if (!ok) {
                         runOnUiThread(() -> {
                             if (dialog != null && dialog.isShowing()) dialog.dismiss();
-                            Toast.makeText(Main2Activity.this, "Failed to set DeliveryDate on server.", Toast.LENGTH_LONG).show();
+                            Toast.makeText(PodLrwiseUpload.this, "Failed to set DeliveryDate on server.", Toast.LENGTH_LONG).show();
                         });
                         return "Failed to set DeliveryDate on server.";
                     } else {
@@ -1119,7 +1123,7 @@ public class Main2Activity extends AppCompatActivity {
                 Spinner spinner = findViewById(R.id.spinner1);
                 spinner.setAdapter(null);
 
-                Toast.makeText(Main2Activity.this,
+                Toast.makeText(PodLrwiseUpload.this,
                         "Upload Successful. Page refreshed.",
                         Toast.LENGTH_LONG).show();
                 int nextpos = 0;
@@ -1136,7 +1140,7 @@ public class Main2Activity extends AppCompatActivity {
                     }
                     String[] LRNO = new String[sitems.size()];
                     sitems.toArray(LRNO);
-                    ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(Main2Activity.this, android.R.layout.simple_spinner_dropdown_item, LRNO) {
+                    ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(PodLrwiseUpload.this, android.R.layout.simple_spinner_dropdown_item, LRNO) {
                         @Override
                         public boolean isEnabled(int position) {
                             if (posv.contains(position)) {
