@@ -107,7 +107,7 @@ public class Main2Activity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.podlrwiseupload);
+        setContentView(R.layout.activity_main2);
         Intent intent1 = getIntent();
         String selectedDepo = intent1.getStringExtra("Depo");
 
