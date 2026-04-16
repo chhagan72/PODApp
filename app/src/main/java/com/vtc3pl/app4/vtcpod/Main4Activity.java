@@ -38,7 +38,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import com.google.android.gms.vision.Frame;
-import com.google.android.gms.vision.barcode.Barcode;
+//import com.google.android.gms.vision.barcode.Barcode;
 import com.google.android.gms.vision.barcode.BarcodeDetector;
 
 import org.json.JSONArray;
@@ -62,7 +62,11 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
-
+import com.google.mlkit.vision.barcode.BarcodeScanner;
+import com.google.mlkit.vision.barcode.BarcodeScanning;
+import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.barcode.common.Barcode;
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions;
 ;
 
 public class Main4Activity extends AppCompatActivity {
@@ -109,11 +113,11 @@ public class Main4Activity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 TextView barcodeno = findViewById(R.id.barcodeno);
-                if (barcodeno.getText().toString() == "Barcode not detected.") {
+                if (barcodeno.getText().toString().equals("Barcode not detected.")) {
                     Toast.makeText(getApplicationContext(), "Invalid Barcode! please take a photo again.", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                if (pictureImagePath == "") {
+                if (pictureImagePath.isEmpty()) {
                     Toast.makeText(getApplicationContext(), "please take a photo.", Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -150,7 +154,7 @@ public class Main4Activity extends AppCompatActivity {
             }
 
             // Create image file
-            File file = new File(imagePath, "temp.jpg");
+            File file = new File(imagePath, "IMG_" + System.currentTimeMillis() + ".jpg");
             pictureImagePath = file.getAbsolutePath();
 
             Uri outputFileUri;
@@ -190,55 +194,129 @@ public class Main4Activity extends AppCompatActivity {
     }
 
 
-    @SuppressLint("MissingSuperCall")
+    @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == 1 && resultCode == RESULT_OK) {
+        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
+
             TextView barcodeno = findViewById(R.id.barcodeno);
-            TextView drsno = findViewById(R.id.drsno);
-            drsno.setText("");
+            ImageView imageView1 = findViewById(R.id.imageView1);
 
-            ListView listview1 = findViewById(R.id.listview1);
-            listview1.setAdapter(null);
+            File imgFile = new File(pictureImagePath);
 
-            File imagePath = new File(getFilesDir(), "images");
-            File imgFile = new File(imagePath, "temp.jpg");
+            dialog = ProgressDialog.show(Main4Activity.this, "", "Scanning barcode...", true);
+            dialog.setCancelable(false);
+
             if (imgFile.exists()) {
-                pictureImagePath = imgFile.getAbsolutePath();
-                Bitmap myBitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
 
-                BarcodeDetector detector =
-                        new BarcodeDetector.Builder(getApplicationContext())
-                                .setBarcodeFormats(Barcode.CODE_128)
+                Bitmap bitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
+                bitmap = scaleDown(bitmap, 1600, true); // increase resolution
+                bitmap = enhanceBitmap(bitmap);
+
+                // ✅ Configure scanner for ONLY barcodes (NO QR)
+                BarcodeScannerOptions options =
+                        new BarcodeScannerOptions.Builder()
+                                .setBarcodeFormats(
+                                        Barcode.FORMAT_CODE_128,
+                                        Barcode.FORMAT_CODE_39,
+                                        Barcode.FORMAT_CODE_93,
+                                        Barcode.FORMAT_CODABAR,
+                                        Barcode.FORMAT_EAN_13,
+                                        Barcode.FORMAT_EAN_8,
+                                        Barcode.FORMAT_ITF,
+                                        Barcode.FORMAT_UPC_A,
+                                        Barcode.FORMAT_UPC_E
+                                )
                                 .build();
-                if (!detector.isOperational()) {
-                    barcodeno.setText("Could not set up the detector!");
-                    return;
-                }
-                Frame frame = new Frame.Builder().setBitmap(myBitmap).build();
-                SparseArray<Barcode> barcodes = detector.detect(frame);
-                if (barcodes.size() > 0) {
-                    Barcode thisCode = barcodes.valueAt(0);
-                    barcodeno.setText(thisCode.rawValue);
-                } else {
-                    barcodeno.setText("Barcode not detected.");
-                }
 
-                Bitmap newBitmap = scaleDown(myBitmap, 1280, true);
-                ImageView imageView1 = findViewById(R.id.imageView1);
+                InputImage image = InputImage.fromBitmap(bitmap, 0);
+                BarcodeScanner scanner = BarcodeScanning.getClient(options);
+
+                // ⏳ Timeout Handler (5 sec)
+                final boolean[] isDetected = {false};
+                final boolean[] isTimeout = {false};
+
+                new android.os.Handler().postDelayed(() -> {
+                    if (!isDetected[0]) {
+                        isTimeout[0] = true;
+
+                        if (dialog != null && dialog.isShowing()) dialog.dismiss();
+
+                        barcodeno.setText("Scan timeout. Please retake photo.");
+                        Toast.makeText(getApplicationContext(),
+                                "Barcode not clear. Move closer & retake.",
+                                Toast.LENGTH_LONG).show();
+                    }
+                }, 5000);
+
+                scanner.process(image)
+                        .addOnSuccessListener(barcodes -> {
+
+                            if (isTimeout[0]) return; // 🚀 STOP if timeout already happened
+
+                            if (dialog != null && dialog.isShowing()) dialog.dismiss();
+
+                            if (!barcodes.isEmpty()) {
+
+                                isDetected[0] = true;
+
+                                Barcode barcode = barcodes.get(0);
+
+                                if (barcode.getFormat() == Barcode.FORMAT_QR_CODE) {
+                                    barcodeno.setText("QR Code not allowed");
+                                    return;
+                                }
+
+                                String value = barcode.getRawValue();
+                                barcodeno.setText(value);
+
+                            } else {
+                                barcodeno.setText("Barcode not detected.");
+                            }
+                        })
+                        .addOnFailureListener(e -> {
+                            if (dialog != null && dialog.isShowing()) dialog.dismiss();
+                            barcodeno.setText("Scan failed");
+                        });
+
+                // 🖼 Show Image
                 imageView1.setVisibility(View.VISIBLE);
-                imageView1.setImageBitmap(newBitmap);
+                imageView1.setImageBitmap(bitmap);
+
+                // 💾 Compress & Save Image
                 try {
                     FileOutputStream fos = new FileOutputStream(imgFile);
-                    newBitmap.compress(Bitmap.CompressFormat.JPEG, 85, fos);
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 85, fos);
                     fos.close();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                ScrollView mScrollView = findViewById(R.id.mScrollView);
-                mScrollView.fullScroll(ScrollView.FOCUS_DOWN);
             }
         }
+    }
+
+    private Bitmap enhanceBitmap(Bitmap bitmap) {
+        Bitmap enhanced = Bitmap.createScaledBitmap(bitmap,
+                bitmap.getWidth(),
+                bitmap.getHeight(),
+                true);
+
+        android.graphics.ColorMatrix cm = new android.graphics.ColorMatrix();
+        cm.set(new float[]{
+                1.5f, 0, 0, 0, 0,
+                0, 1.5f, 0, 0, 0,
+                0, 0, 1.5f, 0, 0,
+                0, 0, 0, 1, 0
+        });
+
+        android.graphics.Paint paint = new android.graphics.Paint();
+        paint.setColorFilter(new android.graphics.ColorMatrixColorFilter(cm));
+
+        android.graphics.Canvas canvas = new android.graphics.Canvas(enhanced);
+        canvas.drawBitmap(enhanced, 0, 0, paint);
+
+        return enhanced;
     }
 
     public Bitmap scaleDown(Bitmap realImage, float maxImageSize, boolean filter) {

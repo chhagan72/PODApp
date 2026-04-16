@@ -521,7 +521,7 @@ public class Main2Activity extends AppCompatActivity {
 
                         JSONArray arr = new JSONArray(response.body().string());
 
-                        lrList.clear();
+//                        lrList.clear();
 
                         for (int i = 0; i < arr.length(); i++) {
                             lrList.add(arr.getString(i));
@@ -1110,14 +1110,14 @@ public class Main2Activity extends AppCompatActivity {
 
                 imageView1.setImageDrawable(null);
 
-                editTextLR.setText("");
+//                editTextLR.setText("");
                 edtDeliveryDate.setText("");
 
-                lrList.clear();
+//                lrList.clear();
                 lrAdapter.notifyDataSetChanged();
 
-                Spinner spinner = findViewById(R.id.spinner1);
-                spinner.setAdapter(null);
+//                Spinner spinner = findViewById(R.id.spinner1);
+//                spinner.setAdapter(null);
 
                 Toast.makeText(Main2Activity.this,
                         "Upload Successful. Page refreshed.",
