@@ -58,6 +58,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -75,6 +76,8 @@ import android.text.Editable;
 import static android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION;
 import static android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
 import static androidx.core.content.FileProvider.getUriForFile;
+import okhttp3.Protocol;
+import java.util.Arrays;
 
 public class Main2Activity extends AppCompatActivity {
     public static final int RequestPermissionCode = 100;
@@ -87,7 +90,7 @@ public class Main2Activity extends AppCompatActivity {
     List<Integer> posb = new ArrayList<Integer>();
     private String upLoadServerUri = "https://vtc3pl.com/Upload_POD.php";
     private String pictureImagePath = "", drsno = "";
-    private OkHttpClient client;
+    //    private OkHttpClient client;
     private Map<String, String> drsdtMap = new HashMap<>();
     private Map<String, String> deliveryDateMap = new HashMap<>();
     private Map<String, String> drsnoMap = new HashMap<>();
@@ -103,6 +106,29 @@ public class Main2Activity extends AppCompatActivity {
     private ProgressDialog loader;
     private android.os.Handler searchHandler = new android.os.Handler();
     private Runnable searchRunnable;
+    private String currentImagePathForOCR = "";
+    OkHttpClient client = new OkHttpClient.Builder()
+            .retryOnConnectionFailure(true)
+            .connectTimeout(120, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(120, TimeUnit.SECONDS)
+            .protocols(Arrays.asList(Protocol.HTTP_1_1)) // ✅ IMPORTANT
+            .addInterceptor(chain -> {
+                Request newRequest = chain.request().newBuilder()
+                        .header("Connection", "close") // ✅ VERY IMPORTANT
+                        .build();
+                return chain.proceed(newRequest);
+            })
+            .build();
+    private String extractedRemarks = "";
+    private boolean isOCRProcessing = false;
+    private String ocr_lr_number = "";
+//    private String ocr_to_place = "";
+    private String ocr_consignor = "";
+    private String ocr_consignee = "";
+    private String ocr_qty = "";
+    private String ocr_weight = "";
+    private String ocr_stamp = "no";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -133,11 +159,11 @@ public class Main2Activity extends AppCompatActivity {
         int currentMonth = calendar.get(Calendar.MONTH);
         Log.e("CurrentMonth", String.valueOf(Calendar.MONTH));
 
-        client = new OkHttpClient.Builder()
-                .connectTimeout(60, TimeUnit.SECONDS)
-                .writeTimeout(60, TimeUnit.SECONDS)
-                .readTimeout(60, TimeUnit.SECONDS)
-                .build();
+//        client = new OkHttpClient.Builder()
+//                .connectTimeout(60, TimeUnit.SECONDS)
+//                .writeTimeout(60, TimeUnit.SECONDS)
+//                .readTimeout(60, TimeUnit.SECONDS)
+//                .build();
         fetchDepoData();
 
         final Spinner spinner1 = findViewById(R.id.spinner1);
@@ -321,6 +347,13 @@ public class Main2Activity extends AppCompatActivity {
         });
 
         btn2.setOnClickListener(view -> {
+
+            if (isOCRProcessing) {
+                Toast.makeText(getApplicationContext(),
+                        "Please wait, OCR is still processing...",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
             Spinner spinner_1 = findViewById(R.id.spinner1);
             if (spinner_1.getSelectedItem() == null) {
                 Toast.makeText(getApplicationContext(), "Please Select LR No.", Toast.LENGTH_SHORT).show();
@@ -520,9 +553,6 @@ public class Main2Activity extends AppCompatActivity {
                     try {
 
                         JSONArray arr = new JSONArray(response.body().string());
-
-//                        lrList.clear();
-
                         for (int i = 0; i < arr.length(); i++) {
                             lrList.add(arr.getString(i));
                         }
@@ -701,33 +731,94 @@ public class Main2Activity extends AppCompatActivity {
             Toast.makeText(this, "Image file not found.", Toast.LENGTH_SHORT).show();
             return;
         }
+        // ✅ RESET OLD DATA FIRST
+        extractedRemarks = "";
+        ocr_lr_number = "";
+//        ocr_to_place = "";
+        ocr_consignor = "";
+        ocr_consignee = "";
+        ocr_qty = "";
+        ocr_weight = "";
+        ocr_stamp = "no";
+        isOCRProcessing = true;
+
+        TextView txtRemarks = findViewById(R.id.txtRemarks);
+        txtRemarks.setText("Processing OCR...");
 
         pictureImagePath = imgFile.getAbsolutePath();
+        currentImagePathForOCR = pictureImagePath;
+        String thisImagePath = pictureImagePath;
 
         Bitmap bitmap = BitmapFactory.decodeFile(pictureImagePath);
         if (bitmap == null) {
             Toast.makeText(this, "Failed to decode image.", Toast.LENGTH_SHORT).show();
             return;
         }
+
+
         Bitmap scaledBitmap = scaleDown(bitmap, 1280, true);
 
-        ImageView imageView1 = findViewById(R.id.imageView1);
-        imageView1.setVisibility(View.VISIBLE);
-        imageView1.setImageBitmap(scaledBitmap);
+// ✅ enhance image
+//        Bitmap enhanced = scaledBitmap;
 
         try {
             FileOutputStream fos = new FileOutputStream(imgFile);
-            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 85, fos);
+
+            // ✅ save enhanced image (NOT scaledBitmap)
+            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+
+            fos.flush();
             fos.close();
+
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        ImageView imageView1 = findViewById(R.id.imageView1);
+        imageView1.setVisibility(View.VISIBLE);
+//        imageView1.setImageBitmap(scaledBitmap);
+        imageView1.setImageBitmap(scaledBitmap);
+        // 👉 NEW: Call OCR in background thread
+        isOCRProcessing = true;
+
+        new Thread(() -> {
+
+            String result = extractRemarksFromImage(pictureImagePath);
+
+            if (result == null || result.trim().equals("")) {
+                result = "No remarks detected";
+            }
+
+            final String finalResult = result; // ✅ IMPORTANT (thread safety)
+
+            runOnUiThread(() -> {
+
+                if (!thisImagePath.equals(currentImagePathForOCR)) {
+                    return; // extra safety
+                }
+
+                isOCRProcessing = false;
+
+                extractedRemarks = finalResult; // ✅ assign ONLY here
+
+                txtRemarks.setText("Remarks: " + extractedRemarks);
+//                txtRemarks.setText("Remarks: " + extractedRemarks);
+
+                Toast.makeText(Main2Activity.this,
+                        "OCR Completed",
+                        Toast.LENGTH_SHORT).show();
+            });
+
+        }).start();
 
         ScrollView mScrollView = findViewById(R.id.mScrollView);
         mScrollView.fullScroll(ScrollView.FOCUS_DOWN);
     }
 
-    private String uploadFileWithOkHttp(String lrno, String drsnoLocal, String picturePath) {
+    private String uploadFileWithOkHttp(
+            String lrno, String drsnoLocal, String picturePath, String remarks, String lrNumberFromOCR,
+            String consignorFromOCR, String consigneeFromOCR, String qtyFromOCR,
+            String weightFromOCR, String stampPresentFromOCR ) {
         if (picturePath == null || picturePath.isEmpty())
             return "No file path provided";
 
@@ -743,6 +834,14 @@ public class Main2Activity extends AppCompatActivity {
                 .addFormDataPart("uploaded_file", file.getName(), fileBody)
                 .addFormDataPart("image_name", lrno)
                 .addFormDataPart("DRSNO", drsnoLocal == null ? "" : drsnoLocal)
+                .addFormDataPart("remarks", remarks)
+                .addFormDataPart("lr_number", lrNumberFromOCR)
+//                .addFormDataPart("to_place", toPlaceFromOCR)
+                .addFormDataPart("consignor", consignorFromOCR)
+                .addFormDataPart("consignee", consigneeFromOCR)
+                .addFormDataPart("qty", qtyFromOCR)
+                .addFormDataPart("weight", weightFromOCR)
+                .addFormDataPart("stamp_present", stampPresentFromOCR)
                 .build();
 
         Request request = new Request.Builder()
@@ -765,6 +864,11 @@ public class Main2Activity extends AppCompatActivity {
     }
 
     private void openCamera() {
+        // ✅ CLEAR OLD REMARKS BEFORE TAKING NEW IMAGE
+        extractedRemarks = "";
+        TextView txtRemarks = findViewById(R.id.txtRemarks);
+        txtRemarks.setText("");
+
         try {
             File imagePath = new File(getFilesDir(), "images");
             if (!imagePath.exists()) {
@@ -980,6 +1084,24 @@ public class Main2Activity extends AppCompatActivity {
         protected String doInBackground(String... params) {
             String result = "";
 
+            // STEP 1: Extract remarks from image
+            String remarksText = extractedRemarks;
+            String lrNumberFromOCR = ocr_lr_number;
+//            String toPlaceFromOCR = ocr_to_place;
+            String consignorFromOCR = ocr_consignor;
+            String consigneeFromOCR = ocr_consignee;
+            String qtyFromOCR = ocr_qty;
+            String weightFromOCR = ocr_weight;
+            String stampPresentFromOCR = ocr_stamp;
+
+            if (remarksText == null || remarksText.trim().equals("")) {
+                remarksText = "No remarks detected";
+            }
+
+            Log.e("REMARKS_TEXT", remarksText);
+            // 👉 ADD LOG HERE
+            Log.e("FINAL_UPLOAD_REMARKS", remarksText);
+
             Spinner spinner = (Spinner) findViewById(R.id.spinner1);
             if (spinner.getSelectedItem() == null) {
                 runOnUiThread(() -> {
@@ -1086,7 +1208,19 @@ public class Main2Activity extends AppCompatActivity {
             }
 
             // finally upload image
-            String uploadResult = uploadFileWithOkHttp(lrno, drsnoLocal, pictureImagePath);
+            String uploadResult = uploadFileWithOkHttp(
+                    lrno,
+                    drsnoLocal,
+                    pictureImagePath,
+                    remarksText,
+                    lrNumberFromOCR,
+//                    toPlaceFromOCR,
+                    consignorFromOCR,
+                    consigneeFromOCR,
+                    qtyFromOCR,
+                    weightFromOCR,
+                    stampPresentFromOCR
+            );
             return uploadResult;
         }
 
@@ -1110,14 +1244,14 @@ public class Main2Activity extends AppCompatActivity {
 
                 imageView1.setImageDrawable(null);
 
-//                editTextLR.setText("");
                 edtDeliveryDate.setText("");
 
-//                lrList.clear();
-                lrAdapter.notifyDataSetChanged();
+                // ✅ CLEAR REMARKS
+                TextView txtRemarks = findViewById(R.id.txtRemarks);
+                txtRemarks.setText("");
+                extractedRemarks = "";
 
-//                Spinner spinner = findViewById(R.id.spinner1);
-//                spinner.setAdapter(null);
+                lrAdapter.notifyDataSetChanged();
 
                 Toast.makeText(Main2Activity.this,
                         "Upload Successful. Page refreshed.",
@@ -1202,6 +1336,150 @@ public class Main2Activity extends AppCompatActivity {
             e.printStackTrace();
         }
         return false;
+    }
+    private Bitmap enhanceImage(Bitmap bitmap) {
+        Bitmap grayscale = Bitmap.createBitmap(
+                bitmap.getWidth(),
+                bitmap.getHeight(),
+                Bitmap.Config.ARGB_8888
+        );
+
+        for (int x = 0; x < bitmap.getWidth(); x++) {
+            for (int y = 0; y < bitmap.getHeight(); y++) {
+                int pixel = bitmap.getPixel(x, y);
+
+                int r = (pixel >> 16) & 0xff;
+                int g = (pixel >> 8) & 0xff;
+                int b = pixel & 0xff;
+
+                int gray = (r + g + b) / 3;
+
+                // Increase contrast
+                if (gray > 140) gray = 255;
+                else gray = 0;
+
+                int newPixel = (0xff << 24) | (gray << 16) | (gray << 8) | gray;
+
+                grayscale.setPixel(x, y, newPixel);
+            }
+        }
+
+        return grayscale;
+    }
+
+    //Capture remarks on pod
+    private String extractRemarksFromImage(String imagePath) {
+
+        File file = new File(imagePath);
+        if (!file.exists()) return "File not found";
+
+        OkHttpClient ocrClient = new OkHttpClient.Builder()
+                .retryOnConnectionFailure(true)
+                .connectTimeout(120, TimeUnit.SECONDS)
+                .readTimeout(120, TimeUnit.SECONDS)
+                .writeTimeout(120, TimeUnit.SECONDS)
+                .protocols(Arrays.asList(Protocol.HTTP_1_1))
+                .addInterceptor(chain -> {
+                    Request newRequest = chain.request().newBuilder()
+                            .header("Connection", "close")
+                            .build();
+                    return chain.proceed(newRequest);
+                })
+                .build();
+
+        RequestBody requestBody = new MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart(
+                        "file",
+                        file.getName(),
+                        RequestBody.create(MediaType.parse("image/jpeg"), file)
+                )
+                .addFormDataPart("parserApp", "XHHwNTZX2Goy1tmU")
+                .addFormDataPart("model", "v2")
+                .addFormDataPart("extra_accuracy", "true")
+                .build();
+
+        Request request = new Request.Builder()
+                .url("https://prod-ml.fracto.tech/upload-file-smart-ocr")
+                .addHeader("x-api-key", "VTC-VTC-B177B1-6ZS60N-U78KLK2U")
+                .post(requestBody)
+                .build();
+
+        try (Response response = ocrClient.newCall(request).execute()) {
+
+            if (!response.isSuccessful()) {
+                return "OCR Failed: " + response.code();
+            }
+
+            ResponseBody body = response.body();
+            if (body == null) return "Empty OCR response";
+
+            String responseBody;
+
+            try {
+                BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(body.byteStream())
+                );
+
+                StringBuilder sb = new StringBuilder();
+                String line;
+
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line);
+                }
+
+                responseBody = sb.toString();
+
+            } catch (Exception e) {
+                return "OCR Read Error: " + e.getMessage();
+            }
+
+            Log.e("OCR_RAW_RESPONSE", responseBody);
+
+            JSONObject json;
+            try {
+                json = new JSONObject(responseBody);
+            } catch (Exception e) {
+                return "Invalid OCR JSON: " + responseBody;
+            }
+
+            if (!json.has("parsedData")) {
+                return "No text found";
+            }
+
+            JSONObject parsedData = json.getJSONObject("parsedData");
+            ocr_lr_number = parsedData.optString("lr_number", "");
+//            ocr_to_place = parsedData.optString("to_place", "");
+            ocr_consignor = parsedData.optString("consignor", "");
+            ocr_consignee = parsedData.optString("consignee", "");
+            ocr_qty = parsedData.optString("qty", "");
+            ocr_weight = parsedData.optString("weight", "");
+            ocr_stamp = parsedData.optString("stamp_present", "no");
+
+            StringBuilder extractedText = new StringBuilder();
+
+            Iterator<String> keys = parsedData.keys();
+
+            while (keys.hasNext()) {
+                String key = keys.next();
+                Object value = parsedData.get(key);
+
+                if (value instanceof String) {
+                    extractedText.append(value).append(" ");
+                } else if (value instanceof JSONArray) {
+                    JSONArray arr = (JSONArray) value;
+                    for (int i = 0; i < arr.length(); i++) {
+                        extractedText.append(arr.getString(i)).append(" ");
+                    }
+                }
+            }
+
+            return extractedText.toString().trim();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "OCR Exception: " + e.getMessage();
+        }
     }
 
     class GetJSON extends AsyncTask<String, Void, String> {

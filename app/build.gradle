@@ -6,8 +6,8 @@ android {
         applicationId "com.vtc3pl.app4.vtcpod"
         minSdkVersion 21
         targetSdkVersion 34
-        versionCode 12
-        versionName "6.1.5"
+        versionCode 13
+        versionName "6.1.6"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
