@@ -129,6 +129,10 @@ public class Main2Activity extends AppCompatActivity {
     private String ocr_qty = "";
     private String ocr_weight = "";
     private String ocr_stamp = "no";
+    private String ocr_pay_basis = "";
+    private String ocr_hamali = "";
+
+    private ProgressDialog ocrLoader;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -743,8 +747,14 @@ public class Main2Activity extends AppCompatActivity {
         isOCRProcessing = true;
 
         TextView txtRemarks = findViewById(R.id.txtRemarks);
-        txtRemarks.setText("Processing OCR...");
+//        txtRemarks.setText("Processing OCR...");
+        txtRemarks.setText("");
 
+        // ✅ SHOW ROUND LOADER
+        ocrLoader = new ProgressDialog(Main2Activity.this);
+        ocrLoader.setMessage("Processing OCR...");
+        ocrLoader.setCancelable(false);
+        ocrLoader.show();
         pictureImagePath = imgFile.getAbsolutePath();
         currentImagePathForOCR = pictureImagePath;
         String thisImagePath = pictureImagePath;
@@ -799,6 +809,11 @@ public class Main2Activity extends AppCompatActivity {
 
                 isOCRProcessing = false;
 
+                // ✅ HIDE LOADER
+                if (ocrLoader != null && ocrLoader.isShowing()) {
+                    ocrLoader.dismiss();
+                }
+
                 extractedRemarks = finalResult; // ✅ assign ONLY here
 
                 txtRemarks.setText("Remarks: " + extractedRemarks);
@@ -818,7 +833,7 @@ public class Main2Activity extends AppCompatActivity {
     private String uploadFileWithOkHttp(
             String lrno, String drsnoLocal, String picturePath, String remarks, String lrNumberFromOCR,
             String consignorFromOCR, String consigneeFromOCR, String qtyFromOCR,
-            String weightFromOCR, String stampPresentFromOCR ) {
+            String weightFromOCR, String stampPresentFromOCR, String payBasisFromOCR, String hamaliFromOCR ) {
         if (picturePath == null || picturePath.isEmpty())
             return "No file path provided";
 
@@ -842,6 +857,8 @@ public class Main2Activity extends AppCompatActivity {
                 .addFormDataPart("qty", qtyFromOCR)
                 .addFormDataPart("weight", weightFromOCR)
                 .addFormDataPart("stamp_present", stampPresentFromOCR)
+                .addFormDataPart("pay_basis", payBasisFromOCR)
+                .addFormDataPart("hamali", hamaliFromOCR)
                 .build();
 
         Request request = new Request.Builder()
@@ -1093,6 +1110,8 @@ public class Main2Activity extends AppCompatActivity {
             String qtyFromOCR = ocr_qty;
             String weightFromOCR = ocr_weight;
             String stampPresentFromOCR = ocr_stamp;
+            String payBasisFromOCR = ocr_pay_basis;
+            String hamaliFromOCR = ocr_hamali;
 
             if (remarksText == null || remarksText.trim().equals("")) {
                 remarksText = "No remarks detected";
@@ -1219,7 +1238,9 @@ public class Main2Activity extends AppCompatActivity {
                     consigneeFromOCR,
                     qtyFromOCR,
                     weightFromOCR,
-                    stampPresentFromOCR
+                    stampPresentFromOCR,
+                    payBasisFromOCR,
+                    hamaliFromOCR
             );
             return uploadResult;
         }
@@ -1455,6 +1476,8 @@ public class Main2Activity extends AppCompatActivity {
             ocr_qty = parsedData.optString("qty", "");
             ocr_weight = parsedData.optString("weight", "");
             ocr_stamp = parsedData.optString("stamp_present", "no");
+            ocr_pay_basis = parsedData.optString("pay_basis", "");
+            ocr_hamali = parsedData.optString("hamali", "");
 
             StringBuilder extractedText = new StringBuilder();
 
